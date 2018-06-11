@@ -1,4 +1,4 @@
-## 1.0.0 (unreleased)
+1.0.0 (2018-06-11)
 
 - Initial release
   [vangheem]
