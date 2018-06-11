@@ -92,6 +92,7 @@ class Batch(Service):
         request._db_write_enabled = True
         request._db_id = self.request._db_id
         request._tm = self.request._tm
+        request._txn = self.request._txn
 
         request._container_id = self.context.id
         request.container = self.context
