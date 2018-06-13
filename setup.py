@@ -21,6 +21,7 @@ setup(
     url='https://github.com/guillotinaweb/guillotina_batch',
     packages=find_packages(exclude=['demo']),
     include_package_data=True,
+    license='BSD',
     extras_require={
         'test': [
             'pytest<=3.1.0',
@@ -35,7 +36,14 @@ setup(
             'asyncpg==0.15.0'
         ]
     },
-    classifiers=[],
+    classifiers=[
+        'License :: OSI Approved :: BSD License',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        'Topic :: Software Development :: Libraries :: Python Modules',
+        'Topic :: Internet :: WWW/HTTP',
+        'Intended Audience :: Developers',
+    ],
     entry_points={
     }
 )
