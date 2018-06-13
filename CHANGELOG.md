@@ -1,7 +1,7 @@
 1.0.2 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- try again
 
 
 1.0.1 (2018-06-13)
