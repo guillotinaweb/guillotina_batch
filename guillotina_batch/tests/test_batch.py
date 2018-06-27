@@ -127,3 +127,32 @@ async def test_edit_sharing_data(container_requester):
         assert len(response) == 2
         assert response[0]['body']['local']['prinperm']['user1']['guillotina.AccessContent'] == 'AllowSingle'
         assert response[1]['body']['local']['prinperm']['user1']['guillotina.AccessContent'] == 'AllowSingle'
+
+
+async def test_querying_permissions(container_requester):
+    async with container_requester as requester:
+        await requester(
+            'POST', '/db/guillotina', data=json.dumps({
+                '@type': 'Item',
+                'id': 'foobar1'
+            }))
+        await requester(
+            'POST', '/db/guillotina', data=json.dumps({
+                '@type': 'Item',
+                'id': 'foobar2'
+            }))
+
+        response, _ = await requester(
+            'POST',
+            '/db/guillotina/@batch',
+            data=json.dumps([{
+                "method": "GET",
+                "endpoint": "foobar1/@canido?permission=guillotina.ChangePermissions"
+            }, {
+                "method": "GET",
+                "endpoint": "foobar2/@canido?permission=guillotina.ChangePermissions"
+            }])
+        )
+        assert len(response) == 2
+        for resp in response:
+            assert resp['status'] == 200 and resp['success']

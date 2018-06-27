@@ -110,11 +110,13 @@ class Batch(Service):
         payload = message.get('payload') or {}
         if not isinstance(payload, str):
             payload = ujson.dumps(payload)
+        headers = dict(self.request.headers)
+        headers.update(message.get('headers') or {})
         request = await self.clone_request(
             message['method'],
             message['endpoint'],
             payload,
-            message.get('headers') or {})
+            headers)
         try:
             aiotask_context.set('request', request)
             result = await self._handle(request, message)
@@ -142,6 +144,8 @@ class Batch(Service):
         if tail and len(tail) > 0:
             # convert match lookups
             view_name = routes.path_to_view_name(tail)
+            # remove query params from view name
+            view_name = view_name.split('?')[0]
         elif not tail:
             view_name = ''
         else:
