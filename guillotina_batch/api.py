@@ -142,6 +142,8 @@ class Batch(Service):
         if tail and len(tail) > 0:
             # convert match lookups
             view_name = routes.path_to_view_name(tail)
+            # remove query params from view name
+            view_name = view_name.split('?')[0]
         elif not tail:
             view_name = ''
         else:
