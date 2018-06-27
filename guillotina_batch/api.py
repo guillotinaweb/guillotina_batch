@@ -191,6 +191,9 @@ class Batch(Service):
         if hasattr(view, 'prepare'):
             view = (await view.prepare()) or view
 
+        # Include request security in view
+        view.request.security.participations = self.request.security.participations
+
         view_result = await view()
 
         if isinstance(view_result, Response):
