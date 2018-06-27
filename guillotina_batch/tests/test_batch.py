@@ -148,11 +148,11 @@ async def test_querying_permissions(container_requester):
             data=json.dumps([{
                 "method": "GET",
                 "endpoint": "foobar1/@canido?permission=guillotina.ChangePermissions"
-            }, {"method": "GET",
+            }, {
+                "method": "GET",
                 "endpoint": "foobar2/@canido?permission=guillotina.ChangePermissions"
             }])
         )
         assert len(response) == 2
         for resp in response:
-            assert resp['status'] == 200 and resp['success']
             assert resp['status'] == 200 and resp['success']
