@@ -106,7 +106,7 @@ class Batch(Service):
                 pass
         return request
 
-    async def handle(self, message):
+    async def handle(self, message, request_headers=None):
         payload = message.get('payload') or {}
         if not isinstance(payload, str):
             payload = ujson.dumps(payload)
@@ -114,7 +114,7 @@ class Batch(Service):
             message['method'],
             message['endpoint'],
             payload,
-            message.get('headers') or {})
+            message.get('headers') or request_headers or {})
         try:
             aiotask_context.set('request', request)
             result = await self._handle(request, message)
@@ -215,5 +215,5 @@ class Batch(Service):
     async def __call__(self):
         results = []
         for message in await self.request.json():
-            results.append(await self.handle(message))
+            results.append(await self.handle(message, self.request.headers))
         return results
