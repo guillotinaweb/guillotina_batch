@@ -1,9 +1,4 @@
-1.0.4 (unreleased)
-------------------
-
-- Nothing changed yet.
-
-1.0.3 (2018-06-27)
+1.0.3 (unreleased)
 ------------------
 
 - Including parent request's security in batched view [lferran]
