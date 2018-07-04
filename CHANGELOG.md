@@ -1,8 +1,14 @@
-1.0.4 (unreleased)
+1.0.5 (unreleased)
 ------------------
 
 - Nothing changed yet.
 
+
+1.0.4 (2018-07-04)
+------------------
+
+- Fixed bug with futures in inner requests being overwitten, causing
+  only the last request's futures being handled [lferran]
 
 1.0.3 (2018-06-27)
 ------------------
