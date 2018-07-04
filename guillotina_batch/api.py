@@ -53,7 +53,7 @@ class SimplePayload:
                    permission='guillotina.AccessContent', allow_access=True)
 class Batch(Service):
 
-    async def clone_request(self, method, endpoint, payload, headers):
+    async def clone_request(self, method, endpoint, payload, headers, count):
         container_url = IAbsoluteURL(self.request.container, self.request)()
         url = posixpath.join(container_url, endpoint)
         parsed = urlparse(url)
@@ -94,6 +94,9 @@ class Batch(Service):
         request._tm = self.request._tm
         request._txn = self.request._txn
 
+        # Clone futures properly
+        request._futures = {f'{n}{count}': f for n, f in self.request._futures.items()}
+
         request._container_id = self.context.id
         request.container = self.context
         annotations_container = IAnnotations(self.context)
@@ -106,7 +109,7 @@ class Batch(Service):
                 pass
         return request
 
-    async def handle(self, message):
+    async def handle(self, message, count):
         payload = message.get('payload') or {}
         if not isinstance(payload, str):
             payload = ujson.dumps(payload)
@@ -116,7 +119,8 @@ class Batch(Service):
             message['method'],
             message['endpoint'],
             payload,
-            headers)
+            headers,
+            count)
         try:
             aiotask_context.set('request', request)
             result = await self._handle(request, message)
@@ -220,6 +224,8 @@ class Batch(Service):
 
     async def __call__(self):
         results = []
+        rcount = 0
         for message in await self.request.json():
-            results.append(await self.handle(message))
+            results.append(await self.handle(message, rcount))
+            rcount += 1
         return results
