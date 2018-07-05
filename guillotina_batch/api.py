@@ -104,6 +104,7 @@ class Batch(Service):
                 alsoProvides(request, import_class(layer))
             except ModuleNotFoundError:
                 pass
+        request._futures = self.request._futures
         return request
 
     async def handle(self, message):
@@ -120,17 +121,6 @@ class Batch(Service):
         try:
             aiotask_context.set('request', request)
             result = await self._handle(request, message)
-            futures = request.futures
-            if len(futures) > 0:
-                # b/w compat way to append a bunch of futures to call together
-                if '' in futures:
-                    # new style
-                    for name, fut in futures[''].items():
-                        self.request.add_future(
-                            name, fut['fut'], args=fut['args'], kwargs=fut['kwargs'])
-                else:
-                    for name, fut in futures.items():
-                        self.request.add_future(name, fut)
             return result
         finally:
             aiotask_context.set('request', self.request)
