@@ -1,4 +1,4 @@
-1.0.4 (unreleased)
+1.0.4 (2018-07-06)
 ------------------
 
 - Copy future object from batch request to request
