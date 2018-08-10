@@ -156,3 +156,35 @@ async def test_querying_permissions(container_requester):
         assert len(response) == 2
         for resp in response:
             assert resp['status'] == 200 and resp['success']
+
+
+async def test_two_files(container_requester):
+    async with container_requester as requester:
+        await requester(
+            'POST', '/db/guillotina', data=json.dumps({
+                '@type': 'Item',
+                'id': 'foobar1',
+                'file': 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',  # noqa
+            }))
+        await requester(
+            'POST', '/db/guillotina', data=json.dumps({
+                '@type': 'Item',
+                'id': 'foobar2',
+                'file': 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',  # noqa
+            }))
+
+        response, status = await requester(
+            'POST',
+            '/db/guillotina/@batch',
+            data=json.dumps([{
+                "method": "GET",
+                "endpoint": "foobar1/@download/file"
+            }, {
+                "method": "GET",
+                "endpoint": "foobar2/@download/file"
+            }])
+        )
+
+        assert len(response) == 2
+        for resp in response:
+            assert resp['status'] == 200 and resp['success']
