@@ -190,9 +190,9 @@ async def test_batch_eager_commit(container_requester):
                 }
             ])
         )
-        assert resp[0]['status'] == 201 and resp[0]['success'] == True
-        assert resp[1]['status'] == 201 and resp[1]['success'] == True
-        assert resp[2]['status'] == 409 and resp[2]['success'] == False
+        assert resp[0]['status'] == 201 and resp[0]['success'] is True
+        assert resp[1]['status'] == 201 and resp[1]['success'] is True
+        assert resp[2]['status'] == 409 and resp[2]['success'] is False
 
         resp, status = await requester(
             'GET',
