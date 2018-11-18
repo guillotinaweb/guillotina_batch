@@ -54,6 +54,7 @@ class SimplePayload:
                    permission='guillotina.AccessContent', allow_access=True)
 class Batch(Service):
 
+    @property
     def eager_commit(self):
         return self.request.query.get('eager-commit', 'false').lower() == 'true'
 
