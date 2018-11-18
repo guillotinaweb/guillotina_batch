@@ -187,12 +187,26 @@ async def test_batch_eager_commit(container_requester):
                         'id': 'item'
                     },
                     'endpoint': 'folder'
+                },
+                {
+                    'method': 'POST',
+                    'payload': {
+                        '@type': 'Item',
+                        'id': 'another-item'
+                    },
+                    'endpoint': 'folder'
+                },
+                {
+                    'method': 'GET',
+                    'endpoint': 'folder/another-item'
                 }
             ])
         )
         assert resp[0]['status'] == 201 and resp[0]['success'] is True
         assert resp[1]['status'] == 201 and resp[1]['success'] is True
         assert resp[2]['status'] == 409 and resp[2]['success'] is False
+        assert resp[3]['status'] == 201 and resp[3]['success'] is True
+        assert resp[4]['status'] == 200 and resp[4]['success'] is True
 
         resp, status = await requester(
             'GET',
