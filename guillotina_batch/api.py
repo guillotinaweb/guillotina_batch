@@ -14,8 +14,9 @@ from guillotina.interfaces import IContainer
 from guillotina.interfaces import IInteraction
 from guillotina.interfaces import IPermission
 from guillotina.registry import REGISTRY_DATA_KEY
+from guillotina.response import ErrorResponse, HTTPError
 from guillotina.security.utils import get_view_permission
-from guillotina.traversal import traverse
+from guillotina.traversal import traverse, generate_error_response
 from guillotina.utils import import_class
 from multidict import CIMultiDict
 from unittest import mock
@@ -52,6 +53,9 @@ class SimplePayload:
 @configure.service(method='POST', name='@batch', context=IContainer,
                    permission='guillotina.AccessContent', allow_access=True)
 class Batch(Service):
+
+    def eager_commit(self):
+        return self.request.query.get('eager-commit', 'false').lower() == 'true'
 
     async def clone_request(self, method, endpoint, payload, headers):
         container_url = IAbsoluteURL(self.request.container, self.request)()
@@ -187,13 +191,21 @@ class Batch(Service):
         view.request.security = self.request.security
         view_result = await view()
 
+        if self.eager_commit:
+            try:
+                await request._tm.commit(request)
+
+            except Exception as e:
+                await request._tm.abort(request)
+                view_result = generate_error_response(e, request, 'ViewError')
+
         if isinstance(view_result, Response):
             return {
                 'body': getattr(view_result, 'content',
                                 getattr(view_result, 'response', {})),
                 'status': getattr(view_result, 'status_code',
                                   getattr(view_result, 'status', 200)),
-                'success': True
+                'success': not isinstance(view_result, (ErrorResponse, HTTPError))
             }
         elif isinstance(view_result, StreamResponse):
             return {

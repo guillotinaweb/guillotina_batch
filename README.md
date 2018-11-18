@@ -3,6 +3,10 @@
 This package simple provides a `@batch` endpoint to Guillotina which
 allows you to group multiple requests into one.
 
+By default all the requests use a single transaction that is commited when all
+the requests finish successfully. If `?eager-commit=true` is provided, each request
+will be committed independently.
+
 
 ## Configuration
 

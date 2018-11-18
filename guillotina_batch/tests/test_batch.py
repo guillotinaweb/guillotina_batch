@@ -156,3 +156,52 @@ async def test_querying_permissions(container_requester):
         assert len(response) == 2
         for resp in response:
             assert resp['status'] == 200 and resp['success']
+
+
+async def test_batch_eager_commit(container_requester):
+    async with container_requester as requester:
+        resp, status = await requester(
+            'POST',
+            '/db/guillotina/@batch?eager-commit=true',
+            data=json.dumps([
+                {
+                    'method': 'POST',
+                    'endpoint': '',
+                    'payload': {
+                        '@type': 'Folder',
+                        'id': 'folder'
+                    },
+                },
+                {
+                    'method': 'POST',
+                    'payload': {
+                        '@type': 'Item',
+                        'id': 'item'
+                    },
+                    'endpoint': 'folder'
+                },
+                {
+                    'method': 'POST',
+                    'payload': {
+                        '@type': 'Item',
+                        'id': 'item'
+                    },
+                    'endpoint': 'folder'
+                }
+            ])
+        )
+        assert resp[0]['status'] == 201 and resp[0]['success'] == True
+        assert resp[1]['status'] == 201 and resp[1]['success'] == True
+        assert resp[2]['status'] == 409 and resp[2]['success'] == False
+
+        resp, status = await requester(
+            'GET',
+            '/db/guillotina/folder',
+        )
+        assert status == 200
+
+        resp, status = await requester(
+            'GET',
+            '/db/guillotina/folder/item',
+        )
+        assert status == 200
