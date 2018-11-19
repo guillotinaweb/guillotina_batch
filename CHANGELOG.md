@@ -1,7 +1,7 @@
 1.0.5 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Added GET param `eager-commit` [masipcat]
 
 
 1.0.4 (2018-07-06)
