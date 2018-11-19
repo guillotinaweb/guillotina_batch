@@ -132,8 +132,8 @@ class Batch(Service):
 
     async def _handle(self, request, message):
         method = app_settings['http_methods'][message['method'].upper()]
-        path = tuple(p for p in message['endpoint'].split('/') if p)
-
+        endpoint = urlparse(message['endpoint']).path
+        path = tuple(p for p in endpoint.split('/') if p)
         obj, tail = await traverse(request, self.request.container, path)
 
         if tail and len(tail) > 0:
