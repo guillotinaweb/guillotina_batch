@@ -9,12 +9,13 @@ except IOError:
 
 setup(
     name='guillotina_batch',
-    version='1.0.6.dev0',
+    version='1.1.0.dev0',
     description='batch endpoint for guillotina',
     long_description=README,
     long_description_content_type='text/markdown',
     install_requires=[
-        'guillotina>=2.1.5'
+        'guillotina>=2.1.5',
+        'backoff',
     ],
     author='Nathan Van Gheem',
     author_email='vangheem@gmail.com',

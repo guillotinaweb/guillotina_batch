@@ -7,6 +7,7 @@ from guillotina.api.service import Service
 from guillotina.component import get_adapter
 from guillotina.component import get_utility
 from guillotina.component import query_multi_adapter
+from guillotina.exceptions import ConflictError
 from guillotina.interfaces import ACTIVE_LAYERS_KEY
 from guillotina.interfaces import IAbsoluteURL
 from guillotina.interfaces import IAnnotations
@@ -30,6 +31,7 @@ except ImportError:
 from aiohttp.web_response import StreamResponse
 
 import aiotask_context
+import backoff
 import posixpath
 import ujson
 
@@ -125,11 +127,17 @@ class Batch(Service):
             headers)
         try:
             aiotask_context.set('request', request)
-            result = await self._handle(request, message)
+            try:
+                result = await self._handle(request, message)
+            except Exception as err:
+                if not self.eager_commit:
+                    raise
+                result = self._gen_result(generate_error_response(err, request, 'ViewError'))
             return result
         finally:
             aiotask_context.set('request', self.request)
 
+    @backoff.on_exception(backoff.constant, ConflictError, max_tries=3)
     async def _handle(self, request, message):
         method = app_settings['http_methods'][message['method'].upper()]
         endpoint = urlparse(message['endpoint']).path
@@ -195,11 +203,13 @@ class Batch(Service):
         if self.eager_commit:
             try:
                 await request._tm.commit(request)
-
-            except Exception as e:
+            except Exception:
                 await request._tm.abort(request)
-                view_result = generate_error_response(e, request, 'ViewError')
+                raise
 
+        return self._gen_result(view_result)
+
+    def _gen_result(self, view_result):
         if isinstance(view_result, Response):
             return {
                 'body': getattr(view_result, 'content',
