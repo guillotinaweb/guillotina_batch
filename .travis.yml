@@ -3,13 +3,20 @@ dist: trusty
 language: python
 python:
     - "3.6"
+addons:
+  postgresql: 9.6
 sudo: required
 env:
-    - DATABASE=DUMMY
-    - DATABASE=postgres
+  - DATABASE=DUMMY
+  - DATABASE=postgres
 cache:
   directories:
     - eggs
+services:
+  - postgresql
+  - docker
+before_script:
+  - psql -c 'create database guillotina;' -U postgres
 install:
   - pip install -e .[test]
   - pip install flake8 codecov
