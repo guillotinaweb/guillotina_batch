@@ -52,6 +52,11 @@ class SimplePayload:
         return self.read
 
 
+async def abort_txn(ctx):
+    _, request, _ = ctx['args']
+    await request._tm.abort()
+
+
 @configure.service(method='POST', name='@batch', context=IContainer,
                    permission='guillotina.AccessContent', allow_access=True)
 class Batch(Service):
@@ -127,17 +132,19 @@ class Batch(Service):
             headers)
         try:
             aiotask_context.set('request', request)
-            try:
+            if self.eager_commit:
+                try:
+                    result = await self._handle(request, message)
+                except Exception as err:
+                    await request._tm.abort()
+                    result = self._gen_result(generate_error_response(err, request, 'ViewError'))
+            else:
                 result = await self._handle(request, message)
-            except Exception as err:
-                if not self.eager_commit:
-                    raise
-                result = self._gen_result(generate_error_response(err, request, 'ViewError'))
             return result
         finally:
             aiotask_context.set('request', self.request)
 
-    @backoff.on_exception(backoff.constant, ConflictError, max_tries=3)
+    @backoff.on_exception(backoff.constant, ConflictError, max_tries=3, on_backoff=abort_txn)
     async def _handle(self, request, message):
         method = app_settings['http_methods'][message['method'].upper()]
         endpoint = urlparse(message['endpoint']).path
@@ -201,11 +208,7 @@ class Batch(Service):
         view_result = await view()
 
         if self.eager_commit:
-            try:
-                await request._tm.commit(request)
-            except Exception:
-                await request._tm.abort(request)
-                raise
+            await request._tm.commit(request)
 
         return self._gen_result(view_result)
 

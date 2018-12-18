@@ -6,7 +6,7 @@ python:
 sudo: required
 env:
     - DATABASE=DUMMY
-
+    - DATABASE=postgres
 cache:
   directories:
     - eggs
