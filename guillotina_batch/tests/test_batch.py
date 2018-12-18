@@ -156,5 +156,3 @@ async def test_querying_permissions(container_requester):
         assert len(response) == 2
         for resp in response:
             assert resp['status'] == 200 and resp['success']
-
-

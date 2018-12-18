@@ -1,9 +1,5 @@
 from guillotina import configure
-from guillotina.api.service import Service
-from guillotina.exceptions import ConflictError
 from guillotina.interfaces import IFolder
-from guillotina.response import Response
-from guillotina_batch.api import Batch
 
 import json
 import pytest
