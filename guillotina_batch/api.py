@@ -223,8 +223,8 @@ class Batch(Service):
             }
         elif isinstance(view_result, StreamResponse):
             return {
-                'body': view_result.body.read().decode('utf-8'),
-                'status': view_result.status_code,
+                'body': view_result.body.decode('utf-8'),
+                'status': view_result.status,
                 'success': True
             }
 
