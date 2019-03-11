@@ -7,6 +7,7 @@ from guillotina.api.service import Service
 from guillotina.component import get_adapter
 from guillotina.component import get_utility
 from guillotina.component import query_multi_adapter
+from guillotina.exceptions import ConflictError
 from guillotina.interfaces import ACTIVE_LAYERS_KEY
 from guillotina.interfaces import IAbsoluteURL
 from guillotina.interfaces import IAnnotations
@@ -30,6 +31,7 @@ except ImportError:
 from aiohttp.web_response import StreamResponse
 
 import aiotask_context
+import backoff
 import posixpath
 import ujson
 
@@ -48,6 +50,11 @@ class SimplePayload:
 
     def at_eof(self):
         return self.read
+
+
+async def abort_txn(ctx):
+    _, request, _ = ctx['args']
+    await request._tm.abort()
 
 
 @configure.service(method='POST', name='@batch', context=IContainer,
@@ -125,11 +132,19 @@ class Batch(Service):
             headers)
         try:
             aiotask_context.set('request', request)
-            result = await self._handle(request, message)
+            if self.eager_commit:
+                try:
+                    result = await self._handle(request, message)
+                except Exception as err:
+                    await request._tm.abort()
+                    result = self._gen_result(generate_error_response(err, request, 'ViewError'))
+            else:
+                result = await self._handle(request, message)
             return result
         finally:
             aiotask_context.set('request', self.request)
 
+    @backoff.on_exception(backoff.constant, ConflictError, max_tries=3, on_backoff=abort_txn)
     async def _handle(self, request, message):
         method = app_settings['http_methods'][message['method'].upper()]
         endpoint = urlparse(message['endpoint']).path
@@ -193,13 +208,11 @@ class Batch(Service):
         view_result = await view()
 
         if self.eager_commit:
-            try:
-                await request._tm.commit(request)
+            await request._tm.commit(request)
 
-            except Exception as e:
-                await request._tm.abort(request)
-                view_result = generate_error_response(e, request, 'ViewError')
+        return self._gen_result(view_result)
 
+    def _gen_result(self, view_result):
         if isinstance(view_result, Response):
             return {
                 'body': getattr(view_result, 'content',
@@ -210,8 +223,8 @@ class Batch(Service):
             }
         elif isinstance(view_result, StreamResponse):
             return {
-                'body': view_result.body.read().decode('utf-8'),
-                'status': view_result.status_code,
+                'body': view_result.body.decode('utf-8'),
+                'status': view_result.status,
                 'success': True
             }
 

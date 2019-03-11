@@ -9,12 +9,13 @@ except IOError:
 
 setup(
     name='guillotina_batch',
-    version='1.0.6.dev0',
+    version='1.1.0.dev0',
     description='batch endpoint for guillotina',
     long_description=README,
     long_description_content_type='text/markdown',
     install_requires=[
-        'guillotina>=2.1.5'
+        'guillotina>=2.1.5',
+        'backoff',
     ],
     author='Nathan Van Gheem',
     author_email='vangheem@gmail.com',
@@ -27,9 +28,10 @@ setup(
             'pytest<=3.1.0',
             'docker',
             'backoff',
+            'jsonschema==2.6.0',
             'psycopg2',
-            'pytest-asyncio>=0.8.0',
-            'pytest-aiohttp',
+            'pytest-asyncio>=0.8.0,<0.10.0',
+            'pytest-aiohttp==0.3.0',
             'pytest-cov==2.6.0',
             'coverage==4.4.0',
             'pytest-docker-fixtures',

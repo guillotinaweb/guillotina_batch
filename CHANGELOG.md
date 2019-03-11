@@ -1,7 +1,8 @@
-1.0.6 (unreleased)
+1.1.0 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Retry requests automatically on ConflictError (with `eager-commit=True`)
+  [masipcat]
 
 
 1.0.5 (2018-11-19)
