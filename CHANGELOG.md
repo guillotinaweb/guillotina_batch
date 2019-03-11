@@ -1,4 +1,4 @@
-1.1.0 (unreleased)
+1.1.0 (2019-03-11)
 ------------------
 
 - Retry requests automatically on ConflictError (with `eager-commit=True`)
