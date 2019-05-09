@@ -1,7 +1,8 @@
-1.1.1 (unreleased)
+1.2.0 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Provide new `max_batch_size` setting and default it to `200`
+  [vangheem]
 
 
 1.1.0 (2019-03-11)
