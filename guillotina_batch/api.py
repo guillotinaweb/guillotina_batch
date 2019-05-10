@@ -61,9 +61,16 @@ async def abort_txn(ctx):
                    permission='guillotina.AccessContent', allow_access=True)
 class Batch(Service):
 
+    _eager_commit = False
+
+    def __init__(self, context, request, eager_commit=False):
+        super().__init__(context, request)
+        self._eager_commit = eager_commit
+
     @property
     def eager_commit(self):
-        return self.request.query.get('eager-commit', 'false').lower() == 'true'
+        return self._eager_commit or self.request.query.get(
+            'eager-commit', 'false').lower() == 'true'
 
     async def clone_request(self, method, endpoint, payload, headers):
         container_url = IAbsoluteURL(self.request.container, self.request)()
