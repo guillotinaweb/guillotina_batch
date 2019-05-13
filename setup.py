@@ -9,7 +9,7 @@ except IOError:
 
 setup(
     name='guillotina_batch',
-    version='1.2.0',
+    version='1.2.1.dev0',
     description='batch endpoint for guillotina',
     long_description=README,
     long_description_content_type='text/markdown',
