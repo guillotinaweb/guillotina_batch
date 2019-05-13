@@ -1,5 +1,6 @@
 from aiohttp import test_utils
 from aiohttp.helpers import noop
+from aiohttp.web_response import StreamResponse
 from guillotina import app_settings
 from guillotina import configure
 from guillotina import routes
@@ -15,20 +16,19 @@ from guillotina.interfaces import IContainer
 from guillotina.interfaces import IInteraction
 from guillotina.interfaces import IPermission
 from guillotina.registry import REGISTRY_DATA_KEY
-from guillotina.response import ErrorResponse, HTTPError
+from guillotina.response import ErrorResponse
+from guillotina.response import HTTPError
+from guillotina.response import HTTPPreconditionFailed
+from guillotina.response import Response
 from guillotina.security.utils import get_view_permission
-from guillotina.traversal import traverse, generate_error_response
+from guillotina.traversal import generate_error_response
+from guillotina.traversal import traverse
 from guillotina.utils import import_class
 from multidict import CIMultiDict
 from unittest import mock
 from urllib.parse import urlparse
 from yarl import URL
 from zope.interface import alsoProvides
-try:
-    from guillotina.response import Response
-except ImportError:
-    from guillotina.browser import Response
-from aiohttp.web_response import StreamResponse
 
 import aiotask_context
 import backoff
@@ -61,9 +61,16 @@ async def abort_txn(ctx):
                    permission='guillotina.AccessContent', allow_access=True)
 class Batch(Service):
 
+    _eager_commit = False
+
+    def __init__(self, context, request, eager_commit=False):
+        super().__init__(context, request)
+        self._eager_commit = eager_commit
+
     @property
     def eager_commit(self):
-        return self.request.query.get('eager-commit', 'false').lower() == 'true'
+        return self._eager_commit or self.request.query.get(
+            'eager-commit', 'false').lower() == 'true'
 
     async def clone_request(self, method, endpoint, payload, headers):
         container_url = IAbsoluteURL(self.request.container, self.request)()
@@ -236,6 +243,12 @@ class Batch(Service):
 
     async def __call__(self):
         results = []
-        for message in await self.request.json():
+        messages = await self.request.json()
+        if len(messages) >= app_settings['max_batch_size']:
+            return HTTPPreconditionFailed(content={
+                'reason': 'Exceeded max match size limit',
+                'limit': app_settings['max_batch_size']
+            })
+        for message in messages:
             results.append(await self.handle(message))
         return results

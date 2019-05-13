@@ -2,6 +2,7 @@ from guillotina import configure
 
 
 app_settings = {
+    'max_batch_size': 200
 }
 
 
