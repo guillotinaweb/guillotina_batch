@@ -1,4 +1,4 @@
-1.2.0 (unreleased)
+1.2.0 (2019-05-13)
 ------------------
 
 - Provide new `max_batch_size` setting and default it to `200`
