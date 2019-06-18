@@ -14,7 +14,7 @@ setup(
     long_description=README,
     long_description_content_type='text/markdown',
     install_requires=[
-        'guillotina>=2.1.5',
+        'guillotina>=2.1.5,<5',
         'backoff',
     ],
     author='Nathan Van Gheem',
