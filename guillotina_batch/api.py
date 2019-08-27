@@ -5,7 +5,6 @@ from guillotina import app_settings
 from guillotina import configure
 from guillotina import routes
 from guillotina.api.service import Service
-from guillotina.component import get_adapter
 from guillotina.component import get_utility
 from guillotina.component import query_multi_adapter
 from guillotina.exceptions import ConflictError
@@ -13,13 +12,13 @@ from guillotina.interfaces import ACTIVE_LAYERS_KEY
 from guillotina.interfaces import IAbsoluteURL
 from guillotina.interfaces import IAnnotations
 from guillotina.interfaces import IContainer
-from guillotina.interfaces import IInteraction
 from guillotina.interfaces import IPermission
 from guillotina.registry import REGISTRY_DATA_KEY
 from guillotina.response import ErrorResponse
 from guillotina.response import HTTPError
 from guillotina.response import HTTPPreconditionFailed
 from guillotina.response import Response
+from guillotina.utils import get_security_policy
 from guillotina.security.utils import get_view_permission
 from guillotina.traversal import generate_error_response
 from guillotina.traversal import traverse
@@ -29,8 +28,8 @@ from unittest import mock
 from urllib.parse import urlparse
 from yarl import URL
 from zope.interface import alsoProvides
+from guillotina import task_vars
 
-import aiotask_context
 import backoff
 import posixpath
 import ujson
@@ -138,7 +137,7 @@ class Batch(Service):
             payload,
             headers)
         try:
-            aiotask_context.set('request', request)
+            task_vars.request.set(request)
             if self.eager_commit:
                 try:
                     result = await self._handle(request, message)
@@ -149,7 +148,7 @@ class Batch(Service):
                 result = await self._handle(request, message)
             return result
         finally:
-            aiotask_context.set('request', self.request)
+            task_vars.request.set(self.request)
 
     @backoff.on_exception(backoff.constant, ConflictError, max_tries=3, on_backoff=abort_txn)
     async def _handle(self, request, message):
@@ -171,7 +170,7 @@ class Batch(Service):
         permission = get_utility(
             IPermission, name='guillotina.AccessContent')
 
-        security = get_adapter(self.request, IInteraction)
+        security = get_security_policy()
         allowed = security.check_permission(permission.id, obj)
         if not allowed:
             return {

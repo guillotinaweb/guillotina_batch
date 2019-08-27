@@ -1,7 +1,7 @@
-1.2.2 (unreleased)
+5.0.0 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Upgrade to g5
 
 
 1.2.1 (2019-06-18)
