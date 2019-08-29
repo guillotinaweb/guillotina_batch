@@ -97,12 +97,14 @@ async def retry_logic(context, request):
         await tm.commit()
 
         # Simulate a conflict error to test retry logic
+        await tm.begin()
         ob.title = 'edit title'
         ob.__serial__ = 3242432  # should raise conflict error when tm.commit()
         txn.register(ob)
 
     elif ob.title == 'A beautiful title':
         ob.title = 'retry logic works'
+        txn = get_transaction()
         txn.register(ob)
 
     else:

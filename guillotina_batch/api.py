@@ -35,6 +35,10 @@ from zope.interface import alsoProvides
 import backoff
 import posixpath
 import ujson
+import logging
+
+
+logger = logging.getLogger('guillotina_batch')
 
 
 class SimplePayload:
@@ -138,6 +142,7 @@ class Batch(Service):
                 except Exception as err:
                     tm = get_tm()
                     await tm.abort()
+                    logger.warning('Error executing batch item', exc_info=True)
                     result = self._gen_result(generate_error_response(err, request, 'ViewError'))
             else:
                 result = await self._handle(request, message)
