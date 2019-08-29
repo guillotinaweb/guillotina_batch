@@ -31,8 +31,7 @@ setup(
             'jsonschema==2.6.0',
             'psycopg2',
             'pytest-asyncio>=0.10.0',
-            'pytest-aiohttp==0.3.0',
-            'pytest-cov==2.6.0',
+            'pytest-cov',
             'coverage==4.4.0',
             'pytest-docker-fixtures',
             'asyncpg==0.15.0'
