@@ -25,12 +25,12 @@ setup(
     license='BSD',
     extras_require={
         'test': [
-            'pytest<=3.1.0',
+            'pytest>=3.8.0',
             'docker',
             'backoff',
             'jsonschema==2.6.0',
             'psycopg2',
-            'pytest-asyncio>=0.8.0,<0.10.0',
+            'pytest-asyncio>=0.10.0',
             'pytest-aiohttp==0.3.0',
             'pytest-cov==2.6.0',
             'coverage==4.4.0',
