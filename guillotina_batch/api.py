@@ -4,25 +4,27 @@ from aiohttp.web_response import StreamResponse
 from guillotina import app_settings
 from guillotina import configure
 from guillotina import routes
+from guillotina import task_vars
 from guillotina.api.service import Service
-from guillotina.component import get_adapter
 from guillotina.component import get_utility
 from guillotina.component import query_multi_adapter
+from guillotina.db.transaction import Status
 from guillotina.exceptions import ConflictError
 from guillotina.interfaces import ACTIVE_LAYERS_KEY
 from guillotina.interfaces import IAbsoluteURL
-from guillotina.interfaces import IAnnotations
 from guillotina.interfaces import IContainer
-from guillotina.interfaces import IInteraction
 from guillotina.interfaces import IPermission
-from guillotina.registry import REGISTRY_DATA_KEY
 from guillotina.response import ErrorResponse
 from guillotina.response import HTTPError
 from guillotina.response import HTTPPreconditionFailed
 from guillotina.response import Response
 from guillotina.security.utils import get_view_permission
+from guillotina.transactions import get_tm
+from guillotina.transactions import get_transaction
 from guillotina.traversal import generate_error_response
 from guillotina.traversal import traverse
+from guillotina.utils import get_registry
+from guillotina.utils import get_security_policy
 from guillotina.utils import import_class
 from multidict import CIMultiDict
 from unittest import mock
@@ -30,10 +32,13 @@ from urllib.parse import urlparse
 from yarl import URL
 from zope.interface import alsoProvides
 
-import aiotask_context
 import backoff
 import posixpath
 import ujson
+import logging
+
+
+logger = logging.getLogger('guillotina_batch')
 
 
 class SimplePayload:
@@ -53,8 +58,8 @@ class SimplePayload:
 
 
 async def abort_txn(ctx):
-    _, request, _ = ctx['args']
-    await request._tm.abort()
+    tm = get_tm()
+    await tm.abort()
 
 
 @configure.service(method='POST', name='@batch', context=IContainer,
@@ -73,7 +78,8 @@ class Batch(Service):
             'eager-commit', 'false').lower() == 'true'
 
     async def clone_request(self, method, endpoint, payload, headers):
-        container_url = IAbsoluteURL(self.request.container, self.request)()
+        container = task_vars.container.get()
+        container_url = IAbsoluteURL(container, self.request)()
         url = posixpath.join(container_url, endpoint)
         parsed = urlparse(url)
         dct = {
@@ -108,22 +114,13 @@ class Batch(Service):
             host=self.request.host,
             remote=self.request.remote)
 
-        request._db_write_enabled = True
-        request._db_id = self.request._db_id
-        request._tm = self.request._tm
-        request._txn = self.request._txn
-
-        request._container_id = self.context.id
-        request.container = self.context
-        annotations_container = IAnnotations(self.context)
-        request.container_settings = await annotations_container.async_get(REGISTRY_DATA_KEY)
-        layers = request.container_settings.get(ACTIVE_LAYERS_KEY, [])
+        registry = await get_registry(container)
+        layers = registry.get(ACTIVE_LAYERS_KEY, [])
         for layer in layers:
             try:
                 alsoProvides(request, import_class(layer))
             except ModuleNotFoundError:
                 pass
-        request._futures = self.request._futures
         return request
 
     async def handle(self, message):
@@ -138,25 +135,33 @@ class Batch(Service):
             payload,
             headers)
         try:
-            aiotask_context.set('request', request)
+            task_vars.request.set(request)
             if self.eager_commit:
                 try:
                     result = await self._handle(request, message)
                 except Exception as err:
-                    await request._tm.abort()
+                    tm = get_tm()
+                    await tm.abort()
+                    logger.warning('Error executing batch item', exc_info=True)
                     result = self._gen_result(generate_error_response(err, request, 'ViewError'))
             else:
                 result = await self._handle(request, message)
             return result
         finally:
-            aiotask_context.set('request', self.request)
+            task_vars.request.set(self.request)
 
     @backoff.on_exception(backoff.constant, ConflictError, max_tries=3, on_backoff=abort_txn)
     async def _handle(self, request, message):
+        tm = get_tm()
+        txn = get_transaction()
+        if txn.status in (Status.ABORTED, Status.COMMITTED, Status.CONFLICT):
+            # start txn
+            txn = await tm.begin()
+
         method = app_settings['http_methods'][message['method'].upper()]
         endpoint = urlparse(message['endpoint']).path
         path = tuple(p for p in endpoint.split('/') if p)
-        obj, tail = await traverse(request, self.request.container, path)
+        obj, tail = await traverse(request, task_vars.container.get(), path)
 
         if tail and len(tail) > 0:
             # convert match lookups
@@ -171,7 +176,7 @@ class Batch(Service):
         permission = get_utility(
             IPermission, name='guillotina.AccessContent')
 
-        security = get_adapter(self.request, IInteraction)
+        security = get_security_policy()
         allowed = security.check_permission(permission.id, obj)
         if not allowed:
             return {
@@ -210,12 +215,10 @@ class Batch(Service):
         if hasattr(view, 'prepare'):
             view = (await view.prepare()) or view
 
-        # Include request's security in view
-        view.request.security = self.request.security
         view_result = await view()
 
         if self.eager_commit:
-            await request._tm.commit(request)
+            await tm.commit()
 
         return self._gen_result(view_result)
 

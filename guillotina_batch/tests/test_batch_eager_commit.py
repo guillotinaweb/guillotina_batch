@@ -1,9 +1,12 @@
 from guillotina import configure
 from guillotina.interfaces import IFolder
+from guillotina.transactions import get_tm
+from guillotina.transactions import get_transaction
 
 import json
-import pytest
 import os
+import pytest
+
 
 DATABASE = os.environ.get('DATABASE', 'DUMMY')
 
@@ -88,17 +91,21 @@ async def retry_logic(context, request):
     if ob.title is None:
         # Modify field 'title' and commit change
         ob.title = 'A beautiful title'
-        request._txn.register(ob)
-        await request._tm.commit()
+        tm = get_tm()
+        txn = get_transaction()
+        txn.register(ob)
+        await tm.commit()
 
         # Simulate a conflict error to test retry logic
+        await tm.begin()
         ob.title = 'edit title'
-        ob._p_serial = 3242432  # should raise conflict error when request._txn.commit()
-        request._txn.register(ob)
+        ob.__serial__ = 3242432  # should raise conflict error when tm.commit()
+        txn.register(ob)
 
     elif ob.title == 'A beautiful title':
         ob.title = 'retry logic works'
-        request._txn.register(ob)
+        txn = get_transaction()
+        txn.register(ob)
 
     else:
         raise Exception('Something is not working as expected')
