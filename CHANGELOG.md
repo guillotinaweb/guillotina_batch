@@ -1,7 +1,7 @@
 5.0.1 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Be able to import types
 
 
 5.0.0 (2019-08-30)

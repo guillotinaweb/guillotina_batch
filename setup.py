@@ -21,6 +21,7 @@ setup(
     author_email='vangheem@gmail.com',
     url='https://github.com/guillotinaweb/guillotina_batch',
     packages=find_packages(exclude=['demo']),
+    package_data={"": ["*.txt", "*.rst"], "guillotina_batch": ["py.typed"]},
     include_package_data=True,
     license='BSD',
     extras_require={
