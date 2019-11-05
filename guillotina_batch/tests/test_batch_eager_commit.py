@@ -98,21 +98,21 @@ async def test_batch_eager_commit_conflict(container_requester):
         resp, status = await requester(
             "POST",
             "/db/guillotina/",
-            data=json.dumps({"@type": "Folder", "id": "foo"})
+            data=json.dumps({"@type": "Folder", "id": "foo"}),  # type: ignore
         )
         assert status == 201
 
         resp, status = await requester(
             "POST",
             "/db/guillotina/foo",
-            data=json.dumps({"@type": "Item", "id": "bar"})
+            data=json.dumps({"@type": "Item", "id": "bar"}),  # type: ignore
         )
         assert status == 201
 
         resp, status = await requester(
             "POST",
             "/db/guillotina/@batch?eager-commit=true",
-            data=json.dumps([{"method": "POST", "endpoint": "foo/@test-retry-logic"}])
+            data=json.dumps([{"method": "POST", "endpoint": "foo/@test-retry-logic"}]),  # type: ignore
         )
         assert status == 200
         assert resp[0]["status"] == 200
