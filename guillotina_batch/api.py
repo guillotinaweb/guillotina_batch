@@ -111,24 +111,28 @@ async def abort_txn(ctx):
     },
     responses={
         "200": {
-            "description": "",
-            "schema": {
-                "type": "array",
-                "description": "List of responses for each view in batch",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "status": {
-                            "type": "int",
-                            "description": "Response status code",
+            "description": "Successfully registered interface",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "array",
+                        "description": "List of responses for each view in batch",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "status": {
+                                    "type": "int",
+                                    "description": "Response status code",
+                                },
+                                "success": {
+                                    "type": "boolean",
+                                    "description": "Whether response was successful",
+                                },
+                                "body": {"type": "object", "properties": {}},
+                            },
                         },
-                        "success": {
-                            "type": "boolean",
-                            "description": "Whether response was successful",
-                        },
-                        "body": {"type": "object", "properties": {}},
-                    },
-                },
+                    }
+                }
             },
         }
     },
