@@ -1,4 +1,4 @@
-5.0.2 (unreleased)
+5.0.2 (2019-11-05)
 ------------------
 
 - Add request body validation
