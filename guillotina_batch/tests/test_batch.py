@@ -28,6 +28,21 @@ async def test_batch_get_data(container_requester):
         assert response[1]["body"]["@name"] == "foobar2"
 
 
+async def test_batch_validates_parameters(container_requester):
+    async with container_requester as requester:
+        _, status = await requester(
+            "POST",
+            "/db/guillotina/@batch",
+            data=json.dumps(
+                [
+                    {"endpoint": "foobar1"},  # method key missing
+                    {"method": "GET", "endpoint": "foobar2"},
+                ]
+            ),
+        )
+        assert status == 412
+
+
 async def test_edit_data(container_requester):
     """Check a value from registry."""
     async with container_requester as requester:

@@ -73,32 +73,42 @@ async def abort_txn(ctx):
             "in": "query",
             "default": False,
             "type": "boolean",
-        },
-        {
-            "title": "Batch operations",
-            "in": "body",
-            "default": [],
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "method": {"type": "string", "description": "View method"},
-                    "endpoint": {"type": "string", "description": "View name"},
-                    "payload": {
-                        "type": "object",
-                        "default": {},
-                        "description": "View body payload",
-                    },
-                    "headers": {
-                        "type": "object",
-                        "default": {},
-                        "description": "View headers",
-                    },
-                },
-                "required": ["method", "endpoint"],
-            },
-        },
+        }
     ],
+    requestBody={
+        "required": True,
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "array",
+                    "title": "Requests in batch",
+                    "in": "body",
+                    "default": [],
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "method": {"type": "string", "description": "View method"},
+                            "endpoint": {
+                                "type": "string",
+                                "description": "View full path",
+                            },
+                            "payload": {
+                                "type": "object",
+                                "default": {},
+                                "description": "View body payload",
+                            },
+                            "headers": {
+                                "type": "object",
+                                "default": {},
+                                "description": "View headers",
+                            },
+                        },
+                        "required": ["method", "endpoint"],
+                    },
+                }
+            }
+        },
+    },
     responses={
         "200": {
             "description": "",
@@ -123,6 +133,7 @@ async def abort_txn(ctx):
         }
     },
     allow_access=True,
+    validate=True,
 )
 class Batch(Service):
 
