@@ -18,12 +18,12 @@ services:
 before_script:
   - psql -c 'create database guillotina;' -U postgres
 install:
-  - pip install git+git://github.com/plone/guillotina@g5-fixes
   - pip install -e .[test]
-  - pip install flake8 codecov
+  - pip install flake8 codecov black
   - sleep 5
 script:
   - flake8 guillotina_batch --config=setup.cfg
+  - black --check --verbose guillotina_batch
   - pytest -s --cov=guillotina_batch -s --tb=native -v --cov-report term-missing --cov-append guillotina_batch
 after_success:
   - codecov

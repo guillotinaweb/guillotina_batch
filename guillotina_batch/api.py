@@ -33,16 +33,15 @@ from yarl import URL
 from zope.interface import alsoProvides
 
 import backoff
+import logging
 import posixpath
 import ujson
-import logging
 
 
-logger = logging.getLogger('guillotina_batch')
+logger = logging.getLogger("guillotina_batch")
 
 
 class SimplePayload:
-
     def __init__(self, data):
         self.data = data
         self.read = False
@@ -51,7 +50,7 @@ class SimplePayload:
         if self.read:
             return bytearray()
         self.read = True
-        return bytearray(self.data, 'utf-8')
+        return bytearray(self.data, "utf-8")
 
     def at_eof(self):
         return self.read
@@ -62,8 +61,84 @@ async def abort_txn(ctx):
     await tm.abort()
 
 
-@configure.service(method='POST', name='@batch', context=IContainer,
-                   permission='guillotina.AccessContent', allow_access=True)
+@configure.service(
+    method="POST",
+    name="@batch",
+    context=IContainer,
+    permission="guillotina.AccessContent",
+    parameters=[
+        {
+            "name": "eager-commit",
+            "description": "Commit changes to database for each individual request",
+            "in": "query",
+            "default": False,
+            "type": "boolean",
+        }
+    ],
+    requestBody={
+        "required": True,
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "array",
+                    "title": "Requests in batch",
+                    "in": "body",
+                    "default": [],
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "method": {"type": "string", "description": "View method"},
+                            "endpoint": {
+                                "type": "string",
+                                "description": "View full path",
+                            },
+                            "payload": {
+                                "type": "object",
+                                "default": {},
+                                "description": "View body payload",
+                            },
+                            "headers": {
+                                "type": "object",
+                                "default": {},
+                                "description": "View headers",
+                            },
+                        },
+                        "required": ["method", "endpoint"],
+                    },
+                }
+            }
+        },
+    },
+    responses={
+        "200": {
+            "description": "Successfully registered interface",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "array",
+                        "description": "List of responses for each view in batch",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "status": {
+                                    "type": "int",
+                                    "description": "Response status code",
+                                },
+                                "success": {
+                                    "type": "boolean",
+                                    "description": "Whether response was successful",
+                                },
+                                "body": {"type": "object", "properties": {}},
+                            },
+                        },
+                    }
+                }
+            },
+        }
+    },
+    allow_access=True,
+    validate=True,
+)
 class Batch(Service):
 
     _eager_commit = False
@@ -74,22 +149,21 @@ class Batch(Service):
 
     @property
     def eager_commit(self):
-        return self._eager_commit or self.request.query.get(
-            'eager-commit', 'false').lower() == 'true'
+        return (
+            self._eager_commit
+            or self.request.query.get("eager-commit", "false").lower() == "true"
+        )
 
     async def clone_request(self, method, endpoint, payload, headers):
         container = task_vars.container.get()
         container_url = IAbsoluteURL(container, self.request)()
         url = posixpath.join(container_url, endpoint)
         parsed = urlparse(url)
-        dct = {
-            'method': method,
-            'url': URL(url),
-            'path': parsed.path
-        }
-        dct['headers'] = CIMultiDict(headers)
-        dct['raw_headers'] = tuple((k.encode('utf-8'), v.encode('utf-8'))
-                                   for k, v in headers.items())
+        dct = {"method": method, "url": URL(url), "path": parsed.path}
+        dct["headers"] = CIMultiDict(headers)
+        dct["raw_headers"] = tuple(
+            (k.encode("utf-8"), v.encode("utf-8")) for k, v in headers.items()
+        )
 
         message = self.request._message._replace(**dct)
 
@@ -112,7 +186,8 @@ class Batch(Service):
             state=self.request._state.copy(),
             scheme=self.request.scheme,
             host=self.request.host,
-            remote=self.request.remote)
+            remote=self.request.remote,
+        )
 
         registry = await get_registry(container)
         layers = registry.get(ACTIVE_LAYERS_KEY, [])
@@ -124,16 +199,14 @@ class Batch(Service):
         return request
 
     async def handle(self, message):
-        payload = message.get('payload') or {}
+        payload = message.get("payload") or {}
         if not isinstance(payload, str):
             payload = ujson.dumps(payload)
         headers = dict(self.request.headers)
-        headers.update(message.get('headers') or {})
+        headers.update(message.get("headers") or {})
         request = await self.clone_request(
-            message['method'],
-            message['endpoint'],
-            payload,
-            headers)
+            message["method"], message["endpoint"], payload, headers
+        )
         try:
             task_vars.request.set(request)
             if self.eager_commit:
@@ -142,15 +215,19 @@ class Batch(Service):
                 except Exception as err:
                     tm = get_tm()
                     await tm.abort()
-                    logger.warning('Error executing batch item', exc_info=True)
-                    result = self._gen_result(generate_error_response(err, request, 'ViewError'))
+                    logger.warning("Error executing batch item", exc_info=True)
+                    result = self._gen_result(
+                        generate_error_response(err, request, "ViewError")
+                    )
             else:
                 result = await self._handle(request, message)
             return result
         finally:
             task_vars.request.set(self.request)
 
-    @backoff.on_exception(backoff.constant, ConflictError, max_tries=3, on_backoff=abort_txn)
+    @backoff.on_exception(
+        backoff.constant, ConflictError, max_tries=3, on_backoff=abort_txn
+    )
     async def _handle(self, request, message):
         tm = get_tm()
         txn = get_transaction()
@@ -158,36 +235,30 @@ class Batch(Service):
             # start txn
             txn = await tm.begin()
 
-        method = app_settings['http_methods'][message['method'].upper()]
-        endpoint = urlparse(message['endpoint']).path
-        path = tuple(p for p in endpoint.split('/') if p)
+        method = app_settings["http_methods"][message["method"].upper()]
+        endpoint = urlparse(message["endpoint"]).path
+        path = tuple(p for p in endpoint.split("/") if p)
         obj, tail = await traverse(request, task_vars.container.get(), path)
 
         if tail and len(tail) > 0:
             # convert match lookups
             view_name = routes.path_to_view_name(tail)
             # remove query params from view name
-            view_name = view_name.split('?')[0]
+            view_name = view_name.split("?")[0]
         elif not tail:
-            view_name = ''
+            view_name = ""
         else:
             raise
 
-        permission = get_utility(
-            IPermission, name='guillotina.AccessContent')
+        permission = get_utility(IPermission, name="guillotina.AccessContent")
 
         security = get_security_policy()
         allowed = security.check_permission(permission.id, obj)
         if not allowed:
-            return {
-                'success': False,
-                'body': {'reason': 'Not allowed'},
-                'status': 401
-            }
+            return {"success": False, "body": {"reason": "Not allowed"}, "status": 401}
 
         try:
-            view = query_multi_adapter(
-                (obj, request), method, name=view_name)
+            view = query_multi_adapter((obj, request), method, name=view_name)
         except AttributeError:
             view = None
 
@@ -197,22 +268,18 @@ class Batch(Service):
             view = None
 
         if view is None:
-            return {
-                'success': False,
-                'body': {'reason': 'Not found'},
-                'status': 404
-            }
+            return {"success": False, "body": {"reason": "Not found"}, "status": 404}
 
         ViewClass = view.__class__
         view_permission = get_view_permission(ViewClass)
         if not security.check_permission(view_permission, view):
             return {
-                'success': False,
-                'body': {'reason': 'No view access'},
-                'status': 401
+                "success": False,
+                "body": {"reason": "No view access"},
+                "status": 401,
             }
 
-        if hasattr(view, 'prepare'):
+        if hasattr(view, "prepare"):
             view = (await view.prepare()) or view
 
         view_result = await view()
@@ -225,33 +292,33 @@ class Batch(Service):
     def _gen_result(self, view_result):
         if isinstance(view_result, Response):
             return {
-                'body': getattr(view_result, 'content',
-                                getattr(view_result, 'response', {})),
-                'status': getattr(view_result, 'status_code',
-                                  getattr(view_result, 'status', 200)),
-                'success': not isinstance(view_result, (ErrorResponse, HTTPError))
+                "body": getattr(
+                    view_result, "content", getattr(view_result, "response", {})
+                ),
+                "status": getattr(
+                    view_result, "status_code", getattr(view_result, "status", 200)
+                ),
+                "success": not isinstance(view_result, (ErrorResponse, HTTPError)),
             }
         elif isinstance(view_result, StreamResponse):
             return {
-                'body': view_result.body.decode('utf-8'),
-                'status': view_result.status,
-                'success': True
+                "body": view_result.body.decode("utf-8"),
+                "status": view_result.status,
+                "success": True,
             }
 
-        return {
-            'body': view_result,
-            'status': 200,
-            'success': True
-        }
+        return {"body": view_result, "status": 200, "success": True}
 
     async def __call__(self):
         results = []
         messages = await self.request.json()
-        if len(messages) >= app_settings['max_batch_size']:
-            return HTTPPreconditionFailed(content={
-                'reason': 'Exceeded max match size limit',
-                'limit': app_settings['max_batch_size']
-            })
+        if len(messages) >= app_settings["max_batch_size"]:
+            return HTTPPreconditionFailed(
+                content={
+                    "reason": "Exceeded max match size limit",
+                    "limit": app_settings["max_batch_size"],
+                }
+            )
         for message in messages:
             results.append(await self.handle(message))
         return results

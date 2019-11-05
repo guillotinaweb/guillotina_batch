@@ -30,7 +30,7 @@ setup(
             'docker',
             'backoff',
             'jsonschema==2.6.0',
-            'psycopg2',
+            'psycopg2-binary',
             'pytest-asyncio>=0.10.0',
             'pytest-cov',
             'coverage==4.4.0',
