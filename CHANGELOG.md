@@ -1,8 +1,12 @@
 5.0.2 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Add request body validation
+- Add request and responses swagger description
+- Black and isort
+- Fix travis
 
+[lferran]
 
 5.0.1 (2019-11-01)
 ------------------
