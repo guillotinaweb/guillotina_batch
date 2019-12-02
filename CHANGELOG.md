@@ -1,4 +1,4 @@
-5.0.3 (unreleased)
+5.0.3 (2019-12-02)
 ------------------
 
 - Fix bug: individual errors are returned separately instead of making
