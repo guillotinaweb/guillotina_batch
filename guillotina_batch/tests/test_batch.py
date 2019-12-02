@@ -214,14 +214,18 @@ async def test_batch_error_returned_in_individual_response_items(container_reque
                 [
                     {"method": "GET", "endpoint": "foobar1"},
                     {"method": "GET", "endpoint": "foobar2"},
-                    {"method": "POST", "endpoint": "/foobar2/@duplicate", "payload": {
-                        "new_id": "foobar1",  # <-- Generates error: ids collide
-                        "destination": "/"
-                    }}
+                    {
+                        "method": "POST",
+                        "endpoint": "/foobar2/@duplicate",
+                        "payload": {
+                            "new_id": "foobar1",  # <-- Generates error: ids collide
+                            "destination": "/",
+                        },
+                    },
                 ]
             ),
         )
         assert status == 200
         assert len(response) == 3
         assert not response[2]["success"]
-        assert not response[2]["status"] == 412
+        assert response[2]["status"] == 412
