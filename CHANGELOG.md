@@ -1,8 +1,8 @@
 5.0.3 (unreleased)
 ------------------
 
-- Nothing changed yet.
-
+- Fix bug: individual errors are returned separately instead of making
+  main request fail. [lferran]
 
 5.0.2 (2019-11-05)
 ------------------

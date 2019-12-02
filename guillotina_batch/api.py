@@ -209,18 +209,16 @@ class Batch(Service):
         )
         try:
             task_vars.request.set(request)
-            if self.eager_commit:
-                try:
-                    result = await self._handle(request, message)
-                except Exception as err:
+            try:
+                result = await self._handle(request, message)
+            except Exception as err:
+                if self.eager_commit:
                     tm = get_tm()
                     await tm.abort()
-                    logger.warning("Error executing batch item", exc_info=True)
-                    result = self._gen_result(
-                        generate_error_response(err, request, "ViewError")
-                    )
-            else:
-                result = await self._handle(request, message)
+                logger.warning("Error executing batch item", exc_info=True)
+                result = self._gen_result(
+                    generate_error_response(err, request, "ViewError")
+                )
             return result
         finally:
             task_vars.request.set(self.request)
