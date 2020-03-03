@@ -1,0 +1,60 @@
+name: guillotina_batch
+
+on: [push]
+
+jobs:
+
+  pre-checks:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.7]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          pip install flake8 black isort
+
+      - name: Pre-checks
+        run: |
+          flake8 guillotina_batch --config=setup.cfg
+          isort -c -rc guillotina_batch
+          black --check --verbose guillotina_batch
+
+  tests:
+    needs: pre-checks
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.7]
+        database: [DUMMY, postgres]
+    env:
+      DATABASE: ${{ matrix.database }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          pip install -e .[test]
+          pip install codecov
+
+      - name: Run tests
+        run: |
+          pytest -s --cov=guillotina_batch -s --tb=native -v --cov-report term-missing --cov-append guillotina_batch
+
+      - name: Code coverage
+        run: |
+          codecov
