@@ -20,11 +20,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install flake8 black
+          pip install flake8 black isort
 
       - name: Pre-checks
         run: |
           flake8 guillotina_batch --config=setup.cfg
+          isort -c -rc guillotina_batch
           black --check --verbose guillotina_batch
 
   tests:
@@ -44,10 +45,6 @@ jobs:
         uses: actions/setup-python@v1
         with:
           python-version: ${{ matrix.python-version }}
-
-      # - name: Create database
-      #   run: |
-      #     psql -c 'create database guillotina;' -U postgres
 
       - name: Install dependencies
         run: |
