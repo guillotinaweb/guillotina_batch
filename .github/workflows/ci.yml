@@ -1,0 +1,59 @@
+name: guillotina_batch
+
+on: [push]
+
+jobs:
+
+  pre-checks:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.7]
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          pip install flake8 black
+
+      - name: Pre-checks
+        run: |
+          flake8 guillotina_batch --config=setup.cfg
+          black --check --verbose guillotina_batch
+
+  tests:
+    needs: pre-checks
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.7]
+    env:
+      DATABASE: postgres
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Create database
+        run: |
+          psql -c 'create database guillotina;' -U postgres
+
+      - name: Install dependencies
+        run: |
+          pip install -e .[test]
+
+      - name: Run tests
+        run: |
+          pytest -s --cov=guillotina_dynamictablestorage -s --tb=native -v --cov-report term-missing --cov-append guillotina_dynamictablestorage
+
+      - name: Run tests
+        run: |
+          codecov
