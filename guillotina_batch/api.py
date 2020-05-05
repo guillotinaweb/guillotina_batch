@@ -21,7 +21,6 @@ from guillotina.response import Response
 from guillotina.security.utils import get_view_permission
 from guillotina.transactions import get_tm
 from guillotina.transactions import get_transaction
-from guillotina.traversal import generate_error_response
 from guillotina.traversal import traverse
 from guillotina.utils import get_registry
 from guillotina.utils import get_security_policy
@@ -320,3 +319,9 @@ class Batch(Service):
         for message in messages:
             results.append(await self.handle(message))
         return results
+
+
+async def generate_error_response(*args, **kwargs):
+    from guillotina.middlewares.errors import ErrorMiddleware
+    mw  = ErrorMiddleware(None)
+    return await mw.generate_error_response(*args, **kwargs)
