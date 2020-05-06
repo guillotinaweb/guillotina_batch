@@ -24,6 +24,7 @@ from guillotina.transactions import get_transaction
 from guillotina.traversal import traverse
 from guillotina.utils import get_registry
 from guillotina.utils import get_security_policy
+from guillotina.middlewares.errors import generate_error_response
 from guillotina.utils import import_class
 from multidict import CIMultiDict
 from unittest import mock
@@ -34,7 +35,7 @@ from zope.interface import alsoProvides
 import backoff
 import logging
 import posixpath
-import ujson
+import orjson
 
 
 logger = logging.getLogger("guillotina_batch")
@@ -158,35 +159,21 @@ class Batch(Service):
         container_url = IAbsoluteURL(container, self.request)()
         url = posixpath.join(container_url, endpoint)
         parsed = urlparse(url)
-        dct = {"method": method, "url": URL(url), "path": parsed.path}
-        dct["headers"] = CIMultiDict(headers)
-        dct["raw_headers"] = tuple(
+        raw_headers = tuple(
             (k.encode("utf-8"), v.encode("utf-8")) for k, v in headers.items()
         )
-
-        message = self.request._message._replace(**dct)
-
-        payload_writer = mock.Mock()
-        payload_writer.write_eof.side_effect = noop
-        payload_writer.drain.side_effect = noop
-
-        protocol = mock.Mock()
-        protocol.transport = test_utils._create_transport(None)
-        protocol.writer = payload_writer
-
         request = self.request.__class__(
-            message,
-            SimplePayload(payload),
-            protocol,
-            payload_writer,
-            self.request._task,
-            self.request._loop,
+            self.request.scheme,
+            method,
+            parsed.path,
+            parsed.query.encode("utf-8"),
+            raw_headers,
             client_max_size=self.request._client_max_size,
-            state=self.request._state.copy(),
-            scheme=self.request.scheme,
-            host=self.request.host,
-            remote=self.request.remote,
+            send=self.request.send,
+            receive=self.request.receive,
+            scope=self.request.scope,
         )
+        request._state = self.request._state.copy()
 
         registry = await get_registry(container)
         layers = registry.get(ACTIVE_LAYERS_KEY, [])
@@ -200,7 +187,7 @@ class Batch(Service):
     async def handle(self, message):
         payload = message.get("payload") or {}
         if not isinstance(payload, str):
-            payload = ujson.dumps(payload)
+            payload = orjson.dumps(payload)
         headers = dict(self.request.headers)
         headers.update(message.get("headers") or {})
         request = await self.clone_request(
@@ -215,9 +202,7 @@ class Batch(Service):
                     tm = get_tm()
                     await tm.abort()
                 logger.warning("Error executing batch item", exc_info=True)
-                result = self._gen_result(
-                    generate_error_response(err, request, "ViewError")
-                )
+                result = self._gen_result(generate_error_response(err, request))
             return result
         finally:
             task_vars.request.set(self.request)
@@ -319,9 +304,3 @@ class Batch(Service):
         for message in messages:
             results.append(await self.handle(message))
         return results
-
-
-async def generate_error_response(*args, **kwargs):
-    from guillotina.middlewares.errors import ErrorMiddleware
-    mw  = ErrorMiddleware(None)
-    return await mw.generate_error_response(*args, **kwargs)
