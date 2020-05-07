@@ -174,6 +174,7 @@ class Batch(Service):
             scope=self.request.scope,
         )
         request._state = self.request._state.copy()
+        request._read_bytes = payload
 
         registry = await get_registry(container)
         layers = registry.get(ACTIVE_LAYERS_KEY, [])
@@ -195,14 +196,19 @@ class Batch(Service):
         )
         try:
             task_vars.request.set(request)
+            errored: bool = True
             try:
                 result = await self._handle(request, message)
-            except Exception as err:
-                if self.eager_commit:
+                errored = False
+            except ErrorResponse as err:
+                result = self._gen_result(err)
+            except Exception as exc:
+                logger.warning("Error executing batch item", exc_info=True)
+                result = self._gen_result(generate_error_response(exc, request))
+            finally:
+                if errored and self.eager_commit:
                     tm = get_tm()
                     await tm.abort()
-                logger.warning("Error executing batch item", exc_info=True)
-                result = self._gen_result(generate_error_response(err, request))
             return result
         finally:
             task_vars.request.set(self.request)
