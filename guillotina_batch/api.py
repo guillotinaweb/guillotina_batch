@@ -1,5 +1,3 @@
-from aiohttp import test_utils
-from aiohttp.helpers import noop
 from aiohttp.web_response import StreamResponse
 from guillotina import app_settings
 from guillotina import configure
@@ -8,6 +6,8 @@ from guillotina import task_vars
 from guillotina.api.service import Service
 from guillotina.component import get_utility
 from guillotina.component import query_multi_adapter
+from guillotina.component import query_adapter
+from guillotina.interfaces import IErrorResponseException
 from guillotina.db.transaction import Status
 from guillotina.exceptions import ConflictError
 from guillotina.interfaces import ACTIVE_LAYERS_KEY
@@ -26,12 +26,9 @@ from guillotina.utils import get_registry
 from guillotina.utils import get_security_policy
 from guillotina.middlewares.errors import generate_error_response
 from guillotina.utils import import_class
-from multidict import CIMultiDict
-from unittest import mock
 from urllib.parse import urlparse
-from yarl import URL
 from zope.interface import alsoProvides
-
+import uuid
 import backoff
 import logging
 import posixpath
@@ -204,7 +201,16 @@ class Batch(Service):
                 result = self._gen_result(err)
             except Exception as exc:
                 logger.warning("Error executing batch item", exc_info=True)
-                result = self._gen_result(generate_error_response(exc, request))
+                # Attempt to get error response from exception
+                error_resp = query_adapter(
+                    exc,
+                    IErrorResponseException,
+                    kwargs={"error": "ServiceError", "eid": uuid.uuid4().hex},
+                )
+                if error_resp is None:
+                    # If that didn't work, default to generic error response
+                    error_resp = generate_error_response(exc, request)
+                result = self._gen_result(error_resp)
             finally:
                 if errored and self.eager_commit:
                     tm = get_tm()
