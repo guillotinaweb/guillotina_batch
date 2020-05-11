@@ -1,4 +1,8 @@
 import json
+import pytest
+
+
+pytestmark = pytest.mark.asyncio
 
 
 async def test_batch_get_data(container_requester):
