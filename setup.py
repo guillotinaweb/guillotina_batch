@@ -13,7 +13,7 @@ setup(
     description="batch endpoint for guillotina",
     long_description=README,
     long_description_content_type="text/markdown",
-    install_requires=["guillotina>=6.0.0.b6", "backoff"],
+    install_requires=["guillotina>=6.0.0b6", "backoff"],
     author="Nathan Van Gheem",
     author_email="vangheem@gmail.com",
     url="https://github.com/guillotinaweb/guillotina_batch",
