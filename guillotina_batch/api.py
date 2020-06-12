@@ -281,14 +281,6 @@ class Batch(Service):
                 "success": not isinstance(view_result, (ErrorResponse, HTTPError)),
             }
 
-        # TODO
-        # elif isinstance(view_result, StreamResponse):
-        #     return {
-        #         "body": view_result.body.decode("utf-8"),
-        #         "status": view_result.status,
-        #         "success": True,
-        #     }
-
         return {"body": view_result, "status": 200, "success": True}
 
     async def __call__(self):

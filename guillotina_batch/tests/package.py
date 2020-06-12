@@ -15,9 +15,7 @@ import json
                 "schema": {
                     "type": "object",
                     "additionalProperties": False,
-                    "properties": {
-                        "exception": {"type": "boolean", "default": False},
-                    },
+                    "properties": {"exception": {"type": "boolean", "default": False}},
                 }
             }
         },
@@ -35,10 +33,7 @@ async def respond(context, request):
     return HTTPOk(content={"foo": "bar"})
 
 
-@configure.service(
-    name="@stream",
-    method="GET",
-)
+@configure.service(name="@stream", method="GET")
 async def stream_something(context, request):
     n_chunks = 3
     chunk = "foobar"

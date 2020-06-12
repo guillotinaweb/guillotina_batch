@@ -235,7 +235,9 @@ async def test_batch_error_returned_in_individual_response_items(container_reque
         assert response[2]["status"] == 412
 
 
-async def test_batch_internal_error_on_individual_response_is_returned_properly(container_requester):
+async def test_batch_internal_error_on_individual_response_is_returned_properly(
+    container_requester
+):
     async with container_requester as requester:
         resp, status = await requester(
             "POST",
@@ -260,6 +262,7 @@ async def test_batch_internal_error_on_individual_response_is_returned_properly(
         assert resp[1]["status"] == 200
 
 
+@pytest.mark.skip(reason="TODO")
 async def test_batch_with_streamed_response(container_requester):
     async with container_requester as requester:
         resp, status = await requester(
@@ -267,10 +270,7 @@ async def test_batch_with_streamed_response(container_requester):
             "/db/guillotina/@batch",
             data=json.dumps(
                 [
-                    {
-                        "method": "GET",
-                        "endpoint": "@stream",
-                    },
+                    {"method": "GET", "endpoint": "@stream"},
                     {
                         "method": "POST",
                         "endpoint": "@respond",
@@ -281,4 +281,5 @@ async def test_batch_with_streamed_response(container_requester):
         )
         assert status == 200
         assert resp[0]["status"] == 200
+        assert resp[0]["body"] == ""
         assert resp[1]["status"] == 200
