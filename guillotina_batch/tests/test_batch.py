@@ -1,5 +1,6 @@
 import json
 import pytest
+from guillotina.tests.utils import get_container
 
 
 pytestmark = pytest.mark.asyncio
@@ -233,3 +234,38 @@ async def test_batch_error_returned_in_individual_response_items(container_reque
         assert len(response) == 3
         assert not response[2]["success"]
         assert response[2]["status"] == 412
+
+
+async def test_batch_error_individual_response(container_requester):
+    async with container_requester as requester:
+        response, status = await requester(
+            "POST",
+            "/db/guillotina/@batch",
+            data=json.dumps(
+                [
+                    {
+                        "method": "POST",
+                        "endpoint": "@respond",
+                        "payload": {
+                            "exception": {
+                                "class": "Exception",
+                                "message": "foo"
+                            }
+                        }
+                    },
+                    {
+                        "method": "POST",
+                        "endpoint": "@respond",
+                        "payload": {
+                            "response": {
+                                "class": "guillotina.response.HTTPOk",
+                                "content": {"reason": "foo"}
+                            }
+                        },
+                    },
+                ]
+            ),
+        )
+        assert status == 200
+        # TODO test more
+        pass

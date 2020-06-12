@@ -39,21 +39,6 @@ import uuid
 logger = logging.getLogger("guillotina_batch")
 
 
-class SimplePayload:
-    def __init__(self, data):
-        self.data = data
-        self.read = False
-
-    async def readany(self):
-        if self.read:
-            return bytearray()
-        self.read = True
-        return bytearray(self.data, "utf-8")
-
-    def at_eof(self):
-        return self.read
-
-
 async def abort_txn(ctx):
     tm = get_tm()
     await tm.abort()
@@ -81,6 +66,7 @@ async def abort_txn(ctx):
                     "type": "array",
                     "title": "Requests in batch",
                     "in": "body",
+                    "minItems": 1,
                     "default": [],
                     "items": {
                         "type": "object",
@@ -304,9 +290,9 @@ class Batch(Service):
 
         return {"body": view_result, "status": 200, "success": True}
 
-    async def __call__(self):
+    async def __call__(self, messages=None):
         results = []
-        messages = await self.request.json()
+        messages = messages or await self.request.json()
         if len(messages) >= app_settings["max_batch_size"]:
             return HTTPPreconditionFailed(
                 content={
