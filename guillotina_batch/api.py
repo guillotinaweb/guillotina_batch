@@ -30,6 +30,7 @@ from urllib.parse import urlparse
 from zope.interface import alsoProvides
 
 import backoff
+import json
 import logging
 import orjson
 import posixpath
@@ -66,7 +67,6 @@ async def abort_txn(ctx):
                     "type": "array",
                     "title": "Requests in batch",
                     "in": "body",
-                    "minItems": 1,
                     "default": [],
                     "items": {
                         "type": "object",
@@ -290,9 +290,14 @@ class Batch(Service):
 
         return {"body": view_result, "status": 200, "success": True}
 
-    async def __call__(self, messages=None):
+    async def __call__(self):
         results = []
-        messages = messages or await self.request.json()
+        try:
+            messages = await self.request.json()
+        except json.JSONDecodeError:
+            # no request body present
+            messages = []
+
         if len(messages) >= app_settings["max_batch_size"]:
             return HTTPPreconditionFailed(
                 content={
