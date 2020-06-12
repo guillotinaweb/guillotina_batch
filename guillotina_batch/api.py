@@ -1,4 +1,3 @@
-from aiohttp.web_response import StreamResponse
 from guillotina import app_settings
 from guillotina import configure
 from guillotina import routes
@@ -272,6 +271,7 @@ class Batch(Service):
 
     def _gen_result(self, view_result):
         if isinstance(view_result, Response):
+            import pdb; pdb.set_trace()
             return {
                 "body": getattr(
                     view_result, "content", getattr(view_result, "response", {})
@@ -281,12 +281,13 @@ class Batch(Service):
                 ),
                 "success": not isinstance(view_result, (ErrorResponse, HTTPError)),
             }
-        elif isinstance(view_result, StreamResponse):
-            return {
-                "body": view_result.body.decode("utf-8"),
-                "status": view_result.status,
-                "success": True,
-            }
+
+        # elif isinstance(view_result, StreamResponse):
+        #     return {
+        #         "body": view_result.body.decode("utf-8"),
+        #         "status": view_result.status,
+        #         "success": True,
+        #     }
 
         return {"body": view_result, "status": 200, "success": True}
 
