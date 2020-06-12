@@ -37,7 +37,6 @@ async def respond(context, request):
 async def stream_something(context, request):
     n_chunks = 3
     chunk = "foobar"
-    chunk_size = len(chunk)
     stream = Response(status=200, content_type="text/plain")
     for i in range(n_chunks):
         await stream.prepare(request)
