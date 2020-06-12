@@ -16,7 +16,7 @@ import json
                     "type": "object",
                     "additionalProperties": False,
                     "properties": {
-                        "exception": {"type": "boolean", "default": False,},
+                        "exception": {"type": "boolean", "default": False},
                     },
                 }
             }
@@ -43,7 +43,6 @@ async def stream_something(context, request):
     n_chunks = 3
     chunk = "foobar"
     chunk_size = len(chunk)
-    total_size = chunk_size * n_chunks
     stream = Response(status=200, content_type="text/plain")
     for i in range(n_chunks):
         await stream.prepare(request)

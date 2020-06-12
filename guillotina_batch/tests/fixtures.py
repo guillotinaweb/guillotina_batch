@@ -5,7 +5,7 @@ def settings_configurator(settings):
     if "applications" not in settings:
         settings["applications"] = []
     settings["applications"].extend(
-        ["guillotina_batch", "guillotina_batch.tests.package",]
+        ["guillotina_batch", "guillotina_batch.tests.package"]
     )
 
 
