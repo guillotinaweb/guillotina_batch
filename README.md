@@ -51,3 +51,7 @@ POST /db/container/@batch [{
 }]
 
 ```
+
+## Limitations
+
+It won't work with streamed responses.

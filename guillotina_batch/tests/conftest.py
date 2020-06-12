@@ -1,5 +1,1 @@
-pytest_plugins = [
-    "aiohttp.pytest_plugin",
-    "guillotina.tests.fixtures",
-    "guillotina_batch.tests.fixtures",
-]
+pytest_plugins = ["guillotina.tests.fixtures", "guillotina_batch.tests.fixtures"]

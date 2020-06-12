@@ -1,19 +1,19 @@
-from aiohttp import test_utils
-from aiohttp.helpers import noop
-from aiohttp.web_response import StreamResponse
 from guillotina import app_settings
 from guillotina import configure
 from guillotina import routes
 from guillotina import task_vars
 from guillotina.api.service import Service
 from guillotina.component import get_utility
+from guillotina.component import query_adapter
 from guillotina.component import query_multi_adapter
 from guillotina.db.transaction import Status
 from guillotina.exceptions import ConflictError
 from guillotina.interfaces import ACTIVE_LAYERS_KEY
 from guillotina.interfaces import IAbsoluteURL
 from guillotina.interfaces import IContainer
+from guillotina.interfaces import IErrorResponseException
 from guillotina.interfaces import IPermission
+from guillotina.middlewares.errors import generate_error_response
 from guillotina.response import ErrorResponse
 from guillotina.response import HTTPError
 from guillotina.response import HTTPPreconditionFailed
@@ -21,39 +21,22 @@ from guillotina.response import Response
 from guillotina.security.utils import get_view_permission
 from guillotina.transactions import get_tm
 from guillotina.transactions import get_transaction
-from guillotina.traversal import generate_error_response
 from guillotina.traversal import traverse
 from guillotina.utils import get_registry
 from guillotina.utils import get_security_policy
 from guillotina.utils import import_class
-from multidict import CIMultiDict
-from unittest import mock
 from urllib.parse import urlparse
-from yarl import URL
 from zope.interface import alsoProvides
 
 import backoff
+import json
 import logging
+import orjson
 import posixpath
-import ujson
+import uuid
 
 
 logger = logging.getLogger("guillotina_batch")
-
-
-class SimplePayload:
-    def __init__(self, data):
-        self.data = data
-        self.read = False
-
-    async def readany(self):
-        if self.read:
-            return bytearray()
-        self.read = True
-        return bytearray(self.data, "utf-8")
-
-    def at_eof(self):
-        return self.read
 
 
 async def abort_txn(ctx):
@@ -159,35 +142,22 @@ class Batch(Service):
         container_url = IAbsoluteURL(container, self.request)()
         url = posixpath.join(container_url, endpoint)
         parsed = urlparse(url)
-        dct = {"method": method, "url": URL(url), "path": parsed.path}
-        dct["headers"] = CIMultiDict(headers)
-        dct["raw_headers"] = tuple(
+        raw_headers = tuple(
             (k.encode("utf-8"), v.encode("utf-8")) for k, v in headers.items()
         )
-
-        message = self.request._message._replace(**dct)
-
-        payload_writer = mock.Mock()
-        payload_writer.write_eof.side_effect = noop
-        payload_writer.drain.side_effect = noop
-
-        protocol = mock.Mock()
-        protocol.transport = test_utils._create_transport(None)
-        protocol.writer = payload_writer
-
         request = self.request.__class__(
-            message,
-            SimplePayload(payload),
-            protocol,
-            payload_writer,
-            self.request._task,
-            self.request._loop,
+            self.request.scheme,
+            method,
+            parsed.path,
+            parsed.query.encode("utf-8"),
+            raw_headers,
             client_max_size=self.request._client_max_size,
-            state=self.request._state.copy(),
-            scheme=self.request.scheme,
-            host=self.request.host,
-            remote=self.request.remote,
+            send=self.request.send,
+            receive=self.request.receive,
+            scope=self.request.scope,
         )
+        request._state = self.request._state.copy()
+        request._read_bytes = payload
 
         registry = await get_registry(container)
         layers = registry.get(ACTIVE_LAYERS_KEY, [])
@@ -201,7 +171,7 @@ class Batch(Service):
     async def handle(self, message):
         payload = message.get("payload") or {}
         if not isinstance(payload, str):
-            payload = ujson.dumps(payload)
+            payload = orjson.dumps(payload)
         headers = dict(self.request.headers)
         headers.update(message.get("headers") or {})
         request = await self.clone_request(
@@ -209,16 +179,28 @@ class Batch(Service):
         )
         try:
             task_vars.request.set(request)
+            errored: bool = True
             try:
                 result = await self._handle(request, message)
-            except Exception as err:
-                if self.eager_commit:
+                errored = False
+            except ErrorResponse as err:
+                result = self._gen_result(err)
+            except Exception as exc:
+                logger.warning("Error executing batch item", exc_info=True)
+                # Attempt to get error response from exception
+                error_resp = query_adapter(
+                    exc,
+                    IErrorResponseException,
+                    kwargs={"error": "ServiceError", "eid": uuid.uuid4().hex},
+                )
+                if error_resp is None:
+                    # If that didn't work, default to generic error response
+                    error_resp = generate_error_response(exc, request)
+                result = self._gen_result(error_resp)
+            finally:
+                if errored and self.eager_commit:
                     tm = get_tm()
                     await tm.abort()
-                logger.warning("Error executing batch item", exc_info=True)
-                result = self._gen_result(
-                    generate_error_response(err, request, "ViewError")
-                )
             return result
         finally:
             task_vars.request.set(self.request)
@@ -298,18 +280,17 @@ class Batch(Service):
                 ),
                 "success": not isinstance(view_result, (ErrorResponse, HTTPError)),
             }
-        elif isinstance(view_result, StreamResponse):
-            return {
-                "body": view_result.body.decode("utf-8"),
-                "status": view_result.status,
-                "success": True,
-            }
 
         return {"body": view_result, "status": 200, "success": True}
 
     async def __call__(self):
         results = []
-        messages = await self.request.json()
+        try:
+            messages = await self.request.json()
+        except json.JSONDecodeError:
+            # no request body present
+            messages = []
+
         if len(messages) >= app_settings["max_batch_size"]:
             return HTTPPreconditionFailed(
                 content={

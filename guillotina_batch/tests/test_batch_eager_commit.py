@@ -8,6 +8,8 @@ import os
 import pytest
 
 
+pytestmark = pytest.mark.asyncio
+
 DATABASE = os.environ.get("DATABASE", "DUMMY")
 
 
@@ -49,10 +51,10 @@ async def test_batch_eager_commit(container_requester):
         assert resp[3]["status"] == 201 and resp[3]["success"] is True
         assert resp[4]["status"] == 200 and resp[4]["success"] is True
 
-        resp, status = await requester("GET", "/db/guillotina/folder",)
+        resp, status = await requester("GET", "/db/guillotina/folder")
         assert status == 200
 
-        resp, status = await requester("GET", "/db/guillotina/folder/item",)
+        resp, status = await requester("GET", "/db/guillotina/folder/item")
         assert status == 200
 
 
@@ -112,7 +114,9 @@ async def test_batch_eager_commit_conflict(container_requester):
         resp, status = await requester(
             "POST",
             "/db/guillotina/@batch?eager-commit=true",
-            data=json.dumps([{"method": "POST", "endpoint": "foo/@test-retry-logic"}]),  # type: ignore
+            data=json.dumps(
+                [{"method": "POST", "endpoint": "foo/@test-retry-logic"}]
+            ),  # type: ignore
         )
         assert status == 200
         assert resp[0]["status"] == 200

@@ -1,7 +1,7 @@
-5.0.4 (unreleased)
+6.0.0 (unreleased)
 ------------------
 
-- Nothing changed yet.
+- Moved to guillotina 6 and python 3.8 [lferran]
 
 
 5.0.3 (2019-12-02)
